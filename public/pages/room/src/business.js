@@ -1,19 +1,19 @@
 class Business {
-  constructor({ room, media, view, socketBuilder }) {
+  constructor({ room, media, view, socketBuilder, peerBuilder }) {
     this.media = media;
     this.room = room;
     this.view = view;
 
     this.socketBuilder = socketBuilder
-      .setOnUserConnected(this.onUserConnected())
-      .setOnUserDisconnected(this.onUserDisconnected())
-      .build();
+    this.peerBuilder = peerBuilder
+     
+    this.socket = {};
+    this.currentStream = {};
+    this.currentPeer = {};
 
-    this.socketBuilder.emit('join-room', this.room, 'teste01')
-
-    this.currentStream = {}
+    this.peers = new Map();
   }
-
+  
   static initialize(deps) {
     const instance = new Business(deps);
     return instance._init();
@@ -21,7 +21,19 @@ class Business {
   
   async _init() {
     this.currentStream = await this.media.getCamera();
-    this.addVideoStream('test01')
+    this.socket = await this.socketBuilder
+      .setOnUserConnected(this.onUserConnected())
+      .setOnUserDisconnected(this.onUserDisconnected())
+      .build();
+    this.currentPeer = await this.peerBuilder
+      .setOnError(this.onPeerError())
+      .setOnConnectionOpened(this.onPeerConnectionOpened())
+      .setOnCallReceived(this.onPeerCallReceived())
+      .setOnPeerStreamReceived(this.setOnPeerStreamReceived())
+      .build();
+
+
+    this.addVideoStream(this.currentPeer._id)
   }
 
   addVideoStream(userId, stream = this.currentStream) {
@@ -36,6 +48,7 @@ class Business {
   onUserConnected = function() {
     return userId => {
       console.log('user connected!', userId);
+      this.currentPeer.call(userId, this.currentStream);
     }
   }
 
@@ -45,4 +58,33 @@ class Business {
     }
   }
 
+  onPeerError = function() {
+    return error => {
+      console.log('error on peer', error);
+    }
+  }
+
+  onPeerConnectionOpened = function() {
+    return (peer) => {
+      const id = peer.id;
+      console.log('peer!!', peer);
+      this.socket.emit('join-room', this.room, id);
+    }
+  }
+
+  onPeerCallReceived = function() {
+    return call => {
+      console.log('ansswering call', call);
+      call.answer(this.currentStream);
+    }
+  }
+
+  setOnPeerStreamReceived = function() {
+    return (call, stream) => {
+      const callerId = call.peer;
+      this.addVideoStream(callerId, stream);
+      this.peers.set(callerId, { call });
+      this.view.setParticipants(this.peers.size);
+    }
+  }
 }

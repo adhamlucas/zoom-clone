@@ -22,8 +22,12 @@ class View {
     return video;
   }
 
-  renderVideo({ userId, stream = null, url = null, isCurrentedId = false }) {
-    const video = this.createVideoElement({ src: url, srcObject: stream });
+  renderVideo({ userId, stream = null, url = null, isCurrentedId = false, muted = true }) {
+    const video = this.createVideoElement({ 
+      muted,
+      src: url,
+      srcObject: stream
+    });
     this.appendToHTMLTree(userId, video, isCurrentedId)
   }
 
@@ -38,5 +42,11 @@ class View {
 
     const videoGrid = document.getElementById('video-grid');
     videoGrid.append(div)
+  }
+
+  setParticipants(count) {
+    const mySelf = 1;
+    const participants = document.getElementById('participants');
+    participants.innerHTML = (count + mySelf);
   }
 }
